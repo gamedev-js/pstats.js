@@ -1,5 +1,5 @@
 {
-  "name": "pstats",
+  "name": "pstats.js",
   "version": "1.0.0",
   "description": "Visualizing and monitor your performance.",
   "main": "dist/pstats.js",

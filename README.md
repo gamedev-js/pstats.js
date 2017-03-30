@@ -1,4 +1,4 @@
-## pstats
+## pstats.js
 
 Visualizing and monitor your performance.
 
@@ -9,7 +9,7 @@ Inspired by [rStats.js](https://github.com/spite/rstats).
 ## Install
 
 ```bash
-npm install pstats
+npm install pstats.js
 ```
 
 ## Usage

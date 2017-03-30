@@ -1,6 +1,262 @@
-import Graph from './graph';
-import StackGraph from './stack-graph';
-import PerfCounter from './perf-counter';
+
+/*
+ * pstats v1.0.0
+ * (c) 2017 @Johnny Wu
+ * Released under the MIT License.
+ */
+
+var pstats = (function () {
+'use strict';
+
+function polyfill() {
+  if (typeof window.performance === 'undefined') {
+    window.performance = {};
+  }
+
+  if (!window.performance.now) {
+
+    var nowOffset = Date.now();
+
+    if (performance.timing && performance.timing.navigationStart) {
+      nowOffset = performance.timing.navigationStart;
+    }
+
+    window.performance.now = function now() {
+      return Date.now() - nowOffset;
+    };
+  }
+
+  if (!window.performance.mark) {
+    window.performance.mark = function () { };
+  }
+
+  if (!window.performance.measure) {
+    window.performance.measure = function () { };
+  }
+
+  if (!window.performance.memory) {
+    window.performance.memory = { usedJSHeapSize: 0, totalJSHeapSize: 0 };
+  }
+}
+
+class Graph {
+  constructor(dom, color) {
+    this._color = color || '#666';
+    this._max = 0;
+    this._current = 0;
+
+    this._canvas = document.createElement('canvas');
+    this._ctx = this._canvas.getContext('2d');
+
+    this._canvasDot = document.createElement('canvas');
+    this._ctxDot = this._canvasDot.getContext('2d');
+
+    this._canvasAlarm = document.createElement('canvas'),
+    this._ctxAlarm = this._canvasAlarm.getContext('2d');
+
+    this._canvas.className = 'pstats-canvas';
+    dom.appendChild(this._canvas);
+  }
+
+  init(width, height) {
+    this._canvas.width = width;
+    this._canvas.height = height;
+    this._canvas.style.width = `${width}px`;
+    this._canvas.style.height = `${height}px`;
+
+    this._ctx.fillStyle = '#444';
+    this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+
+    this._canvasDot.width = 1;
+    this._canvasDot.height = 2 * height;
+
+    this._ctxDot.fillStyle = '#444';
+    this._ctxDot.fillRect(0, 0, 1, 2 * height);
+    this._ctxDot.fillStyle = this._color;
+    this._ctxDot.fillRect(0, height, 1, height);
+    this._ctxDot.fillStyle = '#fff';
+    this._ctxDot.globalAlpha = 0.5;
+    this._ctxDot.fillRect(0, height, 1, 1);
+    this._ctxDot.globalAlpha = 1;
+
+    this._canvasAlarm.width = 1;
+    this._canvasAlarm.height = 2 * height;
+
+    this._ctxAlarm.fillStyle = '#444';
+    this._ctxAlarm.fillRect(0, 0, 1, 2 * height);
+    this._ctxAlarm.fillStyle = '#b70000';
+    this._ctxAlarm.fillRect(0, height, 1, height);
+    this._ctxAlarm.globalAlpha = 0.5;
+    this._ctxAlarm.fillStyle = '#fff';
+    this._ctxAlarm.fillRect(0, height, 1, 1);
+    this._ctxAlarm.globalAlpha = 1;
+  }
+
+  draw(value, alarm) {
+    this._current += (value - this._current) * 0.1;
+    this._max *= 0.99;
+
+    if (this._current > this._max) {
+      this._max = this._current;
+    }
+
+    // DISABLE: pstats is not designed for monitor ranged value
+    // if (this._current < this._min) {
+    //   this._min = this._current;
+    // }
+    // let ratio = (this._current - this._min) / (this._max - this._min);
+
+    this._ctx.drawImage(this._canvas,
+      1, 0, this._canvas.width - 1, this._canvas.height,
+      0, 0, this._canvas.width - 1, this._canvas.height
+    );
+
+    if (alarm) {
+      this._ctx.drawImage(this._canvasAlarm,
+        this._canvas.width - 1,
+        -this._canvas.height * this._current / this._max
+      );
+    } else {
+      this._ctx.drawImage(this._canvasDot,
+        this._canvas.width - 1,
+        -this._canvas.height * this._current / this._max
+      );
+    }
+  }
+}
+
+class StackGraph {
+  constructor(dom, colors) {
+    this._colors = colors;
+
+    this._canvas = document.createElement('canvas');
+    this._ctx = this._canvas.getContext('2d');
+
+    this._canvas.className = 'pstats-canvas';
+    dom.appendChild(this._canvas);
+  }
+
+  init(width, height, n) {
+    this._canvas.width = width;
+    this._canvas.height = height * n;
+    this._canvas.style.width = `${width}px`;
+    this._canvas.style.height = `${height * n}px`;
+
+    this._ctx.fillStyle = '#444';
+    this._ctx.fillRect(0, 0, width, height * n);
+  }
+
+  draw(values) {
+    this._ctx.drawImage(this._canvas,
+      1, 0, this._canvas.width - 1, this._canvas.height,
+      0, 0, this._canvas.width - 1, this._canvas.height
+    );
+
+    let th = 0;
+    for (let i = 0; i < values.length; ++i) {
+      let h = values[i] * this._canvas.height;
+      this._ctx.fillStyle = this._colors[i];
+      this._ctx.fillRect(this._canvas.width - 1, th, 1, h);
+      th += h;
+    }
+  }
+}
+
+class PerfCounter {
+  constructor(id, opts) {
+    this._id = id;
+    this._opts = opts || {};
+
+    this._idstart = `${id}_start`;
+    this._idend = `${id}_end`;
+
+    this._value = 0;
+    this._total = 0;
+    this._averageValue = 0;
+    this._accumValue = 0;
+    this._accumStart = window.performance.now();
+    this._accumSamples = 0;
+    this._started = false;
+
+    this._time = performance.now();
+  }
+
+  _average(v) {
+    if (this._opts.average) {
+      this._accumValue += v;
+      ++this._accumSamples;
+
+      let t = performance.now();
+      if (t - this._accumStart >= (this._opts.avgMs || 1000)) {
+        this._averageValue = this._accumValue / this._accumSamples;
+        this._accumValue = 0;
+        this._accumStart = t;
+        this._accumSamples = 0;
+      }
+    }
+  }
+
+  get value() { return this._value; }
+  set value(v) {
+    this._value = v;
+    this._average(this._value);
+  }
+
+  start() {
+    this._time = window.performance.now();
+    window.performance.mark(this._idstart);
+
+    this._started = true;
+  }
+
+  end() {
+    this._value = window.performance.now() - this._time;
+    window.performance.mark(this._idend);
+    if (this._started) {
+      window.performance.measure(this._id, this._idstart, this._idend);
+    }
+
+    this._average(this._value);
+  }
+
+  tick() {
+    this.end();
+    this.start();
+  }
+
+  frame() {
+    let t = window.performance.now();
+    let e = t - this._time;
+    this._total++;
+
+    if (e > 1000) {
+      if (this._opts.interpolate) {
+        this._value = this._total * 1000 / e;
+      } else {
+        this._value = this._total;
+      }
+
+      this._total = 0;
+      this._time = t;
+      this._average(this._value);
+    }
+  }
+
+  sampleAverage() {
+    let v = this._opts.average ? this._averageValue : this._value;
+    return Math.round(v * 100) / 100;
+  }
+
+  sampleAlarm() {
+    return (
+      (this._opts.below && this._value < this._opts.below) ||
+      (this._opts.over && this._value > this._opts.over)
+    );
+  }
+
+    // this._graph.draw(this._value, a);
+    // this._dom.className = a ? 'pstats-counter-base alarm' : 'pstats-counter-base';
+}
 
 let _canvasWidth = 100;
 let _canvasHeight = 10;
@@ -95,7 +351,7 @@ styleEL.textContent = _css;
 document.head.appendChild(styleEL);
 
 //
-export default class Stats {
+class Stats {
   constructor (dom, opts) {
     opts = opts || {};
     this._colors = opts.colors || ['#850700', '#c74900', '#fcb300', '#284280', '#4c7c0c'];
@@ -302,3 +558,23 @@ export default class Stats {
     // });
   }
 }
+
+polyfill();
+
+let pstats = {
+  new (dom, settings) {
+    let stats = new Stats(dom, settings);
+    return function (id) {
+      if (!id) {
+        return stats;
+      }
+
+      return stats.item(id);
+    };
+  },
+};
+
+return pstats;
+
+}());
+//# sourceMappingURL=pstats.dev.js.map

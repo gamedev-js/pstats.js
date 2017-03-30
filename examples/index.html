@@ -31,26 +31,45 @@
 
       let stats = pstats.new(document.body, {
         values: {
-          frame: { caption: 'Total frame time (ms)', over: 16 },
-          raf: { caption: 'Time since last rAF (ms)' },
-          fps: { caption: 'Framerate (FPS)', below: 30 },
-          render: { caption: 'WebGL Render (ms)' }
-        }
+          frame: { desc: 'Total frame time (ms)', over: 18 },
+          raf: { desc: 'Time since last rAF (ms)' },
+          fps: { desc: 'Framerate (FPS)', below: 30 },
+          render1: { desc: 'WebGL Render 01 (ms)' },
+          render2: { desc: 'WebGL Render 02 (ms)' },
+        },
+        fractions: [
+          { base: 'frame', steps: ['render1', 'render2'] }
+        ],
       });
 
-      function animate() {
+      function delay() {
+        let d = Math.random() * 10;
+        let now = Date.now();
+        let s = now + d;
+        while (now < s) {
+          now = Date.now();
+        }
+      }
+
+      function render() {
         stats('frame').start();
           stats('raf').tick();
           stats('fps').frame();
 
-          stats('render').start();
-          stats('render').end();
+          stats('render1').start();
+            delay();
+          stats('render1').end();
+
+          stats('render2').start();
+            delay();
+          stats('render2').end();
         stats('frame').end();
 
         stats().tick();
-        requestAnimationFrame(animate);
+        requestAnimationFrame(render);
       }
-      requestAnimationFrame(animate);
+
+      render();
     </script>
   </body>
 </html>

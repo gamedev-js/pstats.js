@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Example: Simple</title>
+    <style>
+      body {
+        text-align: center;
+        background: #333;
+
+        position: absolute;
+        top: 0; bottom: 0; left: 0; right: 0;
+        display: flex;
+        flex-direction: column;
+
+        /*user-select: none;
+        cursor: default;*/
+      }
+
+      h2 {
+        color: #f90;
+      }
+    </style>
+    <script src="../dist/pstats.dev.js"></script>
+  </head>
+
+  <body>
+    <h2>pstats</h2>
+    <script>
+      'use strict';
+
+      let stats = pstats.new(document.body, {
+        values: {
+          frame: { caption: 'Total frame time (ms)', over: 16 },
+          raf: { caption: 'Time since last rAF (ms)' },
+          fps: { caption: 'Framerate (FPS)', below: 30 },
+          render: { caption: 'WebGL Render (ms)' }
+        }
+      });
+
+      function animate() {
+        stats('frame').start();
+          stats('raf').tick();
+          stats('fps').frame();
+
+          stats('render').start();
+          stats('render').end();
+        stats('frame').end();
+
+        stats().tick();
+        requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+    </script>
+  </body>
+</html>

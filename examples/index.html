@@ -61,6 +61,7 @@
 
       function render() {
         stats('memory').snapshot();
+        stats('drawcalls').snapshot();
 
         stats('frame').start();
           stats('raf').tick();

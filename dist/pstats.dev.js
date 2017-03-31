@@ -1,6 +1,6 @@
 
 /*
- * pstats.js v1.0.0
+ * pstats.js v1.1.0
  * (c) 2017 @Johnny Wu
  * Released under the MIT License.
  */
@@ -392,20 +392,20 @@ class WebglCounter extends Counter {
     this._start = 0;
 
     if ( opts.extension.indexOf('webgl.') === 0 ) {
-      this._field = opts.extension.substring(7);
+      this._field = opts.extension.substring(6);
     }
   }
 
   snapshot () {
-    this._value = this._stats[this._filed];
+    this._value = this._stats[this._field];
   }
 
   start() {
-    this._start = this._stats[this._filed];
+    this._start = this._stats[this._field];
   }
 
   end() {
-    this._value = this._stats[this._filed] - this._start;
+    this._value = this._stats[this._field] - this._start;
   }
 }
 

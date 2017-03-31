@@ -31,14 +31,20 @@
 
       let stats = pstats.new(document.body, {
         values: {
-          frame: { desc: 'Total frame time (ms)', over: 18 },
-          raf: { desc: 'Time since last rAF (ms)' },
-          fps: { desc: 'Framerate (FPS)', below: 30 },
+          frame: { desc: 'Total frame time (ms)', over: 18, average: 100 },
+          raf: { desc: 'Time since last rAF (ms)', average: 100 },
+          fps: { desc: 'Framerate (FPS)', below: 30, average: 500 },
           render1: { desc: 'WebGL Render 01 (ms)' },
           render2: { desc: 'WebGL Render 02 (ms)' },
+          user: { desc: 'user value' },
+          memory: { desc: 'Memory', extension: 'memory.used', average: 1000 },
+          drawcalls: { desc: 'Draw Calls', extension : 'webgl.drawcalls' },
         },
         fractions: [
           { base: 'frame', steps: ['render1', 'render2'] }
+        ],
+        extensions: [
+          'memory', 'webgl'
         ],
       });
 
@@ -51,7 +57,11 @@
         }
       }
 
+      let i = 0;
+
       function render() {
+        stats('memory').snapshot();
+
         stats('frame').start();
           stats('raf').tick();
           stats('fps').frame();
@@ -64,6 +74,9 @@
             delay();
           stats('render2').end();
         stats('frame').end();
+
+        stats('user').value = i;
+        i += 0.1;
 
         stats().tick();
         requestAnimationFrame(render);

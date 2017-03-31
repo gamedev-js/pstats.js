@@ -1,5 +1,6 @@
 import polyfill from './lib/polyfill';
 import Stats from './lib/stats';
+import extensions from './lib/extensions/index';
 
 polyfill();
 
@@ -13,6 +14,10 @@ let pstats = {
 
       return stats.item(id);
     };
+  },
+
+  register(name, ext) {
+    extensions[name] = ext;
   },
 };
 

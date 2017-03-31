@@ -1,6 +1,6 @@
 
 /*
- * pstats v1.0.0
+ * pstats.js v1.0.0
  * (c) 2017 @Johnny Wu
  * Released under the MIT License.
  */
@@ -162,23 +162,17 @@ class StackGraph {
   }
 }
 
-class PerfCounter {
+class Counter {
   constructor(id, opts) {
     this._id = id;
     this._opts = opts || {};
-
-    this._idstart = `${id}_start`;
-    this._idend = `${id}_end`;
 
     this._value = 0;
     this._total = 0;
     this._averageValue = 0;
     this._accumValue = 0;
-    this._accumStart = window.performance.now();
     this._accumSamples = 0;
-    this._started = false;
-
-    this._time = performance.now();
+    this._accumStart = window.performance.now();
   }
 
   _average(v) {
@@ -187,7 +181,7 @@ class PerfCounter {
       ++this._accumSamples;
 
       let t = performance.now();
-      if (t - this._accumStart >= (this._opts.avgMs || 1000)) {
+      if (t - this._accumStart >= this._opts.average) {
         this._averageValue = this._accumValue / this._accumSamples;
         this._accumValue = 0;
         this._accumStart = t;
@@ -199,22 +193,49 @@ class PerfCounter {
   get value() { return this._value; }
   set value(v) {
     this._value = v;
+  }
+
+  sample() {
     this._average(this._value);
+  }
+
+  human() {
+    let v = this._opts.average ? this._averageValue : this._value;
+    return Math.round(v * 100) / 100;
+  }
+
+  alarm() {
+    return (
+      (this._opts.below && this._value < this._opts.below) ||
+      (this._opts.over && this._value > this._opts.over)
+    );
+  }
+}
+
+class PerfCounter extends Counter {
+  constructor(id, opts) {
+    super(id, opts);
+
+    // DISABLE
+    // this._idstart = `${id}_start`;
+    // this._idend = `${id}_end`;
+
+    this._time = performance.now();
   }
 
   start() {
     this._time = window.performance.now();
-    window.performance.mark(this._idstart);
 
-    this._started = true;
+    // DISABLE: long time running will cause performance drop down
+    // window.performance.mark(this._idstart);
   }
 
   end() {
     this._value = window.performance.now() - this._time;
-    window.performance.mark(this._idend);
-    if (this._started) {
-      window.performance.measure(this._id, this._idstart, this._idend);
-    }
+
+    // DISABLE: long time running will cause performance drop down
+    // window.performance.mark(this._idend);
+    // window.performance.measure(this._id, this._idstart, this._idend);
 
     this._average(this._value);
   }
@@ -228,35 +249,222 @@ class PerfCounter {
     let t = window.performance.now();
     let e = t - this._time;
     this._total++;
+    let avg = this._opts.average || 1000;
 
-    if (e > 1000) {
-      if (this._opts.interpolate) {
-        this._value = this._total * 1000 / e;
-      } else {
-        this._value = this._total;
-      }
-
+    if (e > avg) {
+      this._value = this._total * 1000 / e;
       this._total = 0;
       this._time = t;
       this._average(this._value);
     }
   }
-
-  sampleAverage() {
-    let v = this._opts.average ? this._averageValue : this._value;
-    return Math.round(v * 100) / 100;
-  }
-
-  sampleAlarm() {
-    return (
-      (this._opts.below && this._value < this._opts.below) ||
-      (this._opts.over && this._value > this._opts.over)
-    );
-  }
-
-    // this._graph.draw(this._value, a);
-    // this._dom.className = a ? 'pstats-counter-base alarm' : 'pstats-counter-base';
 }
+
+const log1024 = Math.log(1024);
+const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
+function _bytesToSize (bytes) {
+  let precision = 100;
+  let i = Math.floor(Math.log(bytes) / log1024);
+  if (bytes === 0) {
+    return 'n/a';
+  }
+  return Math.round(bytes * precision / Math.pow(1024, i)) / precision + ' ' + sizes[i];
+}
+
+class MemoryCounter extends Counter {
+  constructor(stats, id, opts) {
+    super(id, opts);
+    this._stats = stats;
+    this._start = 0;
+
+    if ( opts.extension.indexOf('memory.') === 0 ) {
+      this._field = opts.extension.substring(7);
+    }
+  }
+
+  snapshot () {
+    this._value = this._stats[this._field];
+  }
+
+  start() {
+    this._start = this._stats[this._field];
+  }
+
+  end() {
+    this._value = this._stats[this._field] - this._start;
+  }
+
+  human () {
+    return _bytesToSize(super.human());
+  }
+
+  // alarm () {
+  //   return this._stats.alarm;
+  // }
+}
+
+class MemoryStats {
+  constructor () {
+    let memory = window.performance.memory;
+    if (memory.totalJSHeapSize === 0) {
+      console.warn('totalJSHeapSize === 0, performance.memory is only available in Chrome.');
+    }
+
+    this._used = 0;
+    this._total = 0;
+    this._lastUsed = 0;
+  }
+
+  tick () {
+    let cur = window.performance.memory.usedJSHeapSize;
+    this._lastUsed = this._used;
+    this._used = cur;
+    this._total = window.performance.memory.totalJSHeapSize;
+  }
+
+  get alarm() {
+    // GC happens
+    return this._used - this._lastUsed < 0;
+  }
+
+  get used() {
+    return this._used;
+  }
+
+  get total() {
+    return this._total;
+  }
+
+  counter(id, opts) {
+    return new MemoryCounter(this, id, opts);
+  }
+}
+
+let _hacked = false;
+let _totalDrawArraysCalls = 0;
+let _totalDrawElementsCalls = 0;
+let _totalUseProgramCalls = 0;
+let _totalFaces = 0;
+let _totalVertices = 0;
+let _totalPoints = 0;
+let _totalBindTexures = 0;
+
+function _hackWebGL() {
+  if (_hacked) {
+    return;
+  }
+
+  _hacked = true;
+
+  function _h(f, c) {
+    return function () {
+      c.apply(this, arguments);
+      f.apply(this, arguments);
+    };
+  }
+
+  WebGLRenderingContext.prototype.drawArrays = _h(WebGLRenderingContext.prototype.drawArrays, function () {
+    _totalDrawArraysCalls++;
+    if (arguments[0] == this.POINTS) _totalPoints += arguments[2];
+    else _totalVertices += arguments[2];
+  });
+
+  WebGLRenderingContext.prototype.drawElements = _h(WebGLRenderingContext.prototype.drawElements, function () {
+    _totalDrawElementsCalls++;
+    _totalFaces += arguments[1] / 3;
+    _totalVertices += arguments[1];
+  });
+
+  WebGLRenderingContext.prototype.useProgram = _h(WebGLRenderingContext.prototype.useProgram, function () {
+    _totalUseProgramCalls++;
+  });
+
+  WebGLRenderingContext.prototype.bindTexture = _h(WebGLRenderingContext.prototype.bindTexture, function () {
+    _totalBindTexures++;
+  });
+}
+
+class WebglCounter extends Counter {
+  constructor(stats, id, opts) {
+    super(id, opts);
+    this._stats = stats;
+    this._start = 0;
+
+    if ( opts.extension.indexOf('webgl.') === 0 ) {
+      this._field = opts.extension.substring(7);
+    }
+  }
+
+  snapshot () {
+    this._value = this._stats[this._filed];
+  }
+
+  start() {
+    this._start = this._stats[this._filed];
+  }
+
+  end() {
+    this._value = this._stats[this._filed] - this._start;
+  }
+}
+
+class WebGLStats {
+  constructor () {
+    _hackWebGL();
+  }
+
+  tick () {
+    _totalDrawArraysCalls = 0;
+    _totalDrawElementsCalls = 0;
+    _totalUseProgramCalls = 0;
+    _totalFaces = 0;
+    _totalVertices = 0;
+    _totalPoints = 0;
+    _totalBindTexures = 0;
+  }
+
+  counter(id, opts) {
+    return new WebglCounter(this, id, opts);
+  }
+
+  get drawcalls () {
+    return _totalDrawArraysCalls + _totalDrawElementsCalls;
+  }
+
+  get drawArrays () {
+    return _totalDrawArraysCalls;
+  }
+
+  get drawElements () {
+    return _totalDrawElementsCalls;
+  }
+
+  get faces () {
+    return _totalFaces;
+  }
+
+  get vertices () {
+    return _totalVertices;
+  }
+
+  get points () {
+    return _totalPoints;
+  }
+
+  get programs () {
+    return _totalUseProgramCalls;
+  }
+
+  get textures () {
+    return _totalBindTexures;
+  }
+}
+
+let extensions = {
+  memory: MemoryStats,
+  webgl: WebGLStats,
+};
 
 let _canvasWidth = 100;
 let _canvasHeight = 10;
@@ -276,7 +484,7 @@ let _css = `
     user-select: none;
     cursor: default;
 
-    background: rgba(0,0,0,0.2);
+    background: #222;
     border-radius: 3px;
 
   }
@@ -285,6 +493,7 @@ let _css = `
     display: flex;
     flex-direction: column;
     color: #888;
+    white-space: nowrap;
   }
 
   .pstats-item {
@@ -316,7 +525,7 @@ let _css = `
   }
 
   .pstats-counter-value {
-    width: 30px;
+    flex: 1;
     text-align: right;
   }
 
@@ -357,8 +566,9 @@ class Stats {
     this._colors = opts.colors || ['#850700', '#c74900', '#fcb300', '#284280', '#4c7c0c'];
     this._values = opts.values || {};
     this._fractions = opts.fractions || [];
-    this._id2perf = {};
+    this._id2counter = {};
     this._id2item = {};
+    this._name2extStats = {};
 
     if (opts.css) {
       let styleEL = document.createElement('style');
@@ -367,40 +577,18 @@ class Stats {
       document.head.appendChild(styleEL);
     }
 
-    // TODO
-    // if (opts.plugins) {
-    //   if (!opts.values) opts.values = {};
-    //   if (!opts.groups) opts.groups = [];
-    //   if (!opts.fractions) opts.fractions = [];
-    //   for (let j = 0; j < opts.plugins.length; j++) {
-    //     opts.plugins[j].attach(_perf);
-    //     iterateKeys(opts.plugins[j].values, function (k) {
-    //       opts.values[k] = opts.plugins[j].values[k];
-    //     });
-    //     opts.groups = opts.groups.concat(opts.plugins[j].groups);
-    //     opts.fractions = opts.fractions.concat(opts.plugins[j].fractions);
-    //   }
-    // } else {
-    //   opts.plugins = {};
-    // }
+    if (opts.extensions) {
+      for (let i = 0; i < opts.extensions.length; ++i) {
+        let name = opts.extensions[i];
+        let ExtStats = extensions[name];
+        if ( !ExtStats ) {
+          console.warn(`Can not find extensions ${name}, please register your extension via pstats.register().`);
+          continue;
+        }
 
-    // TODO
-    // if (opts.groups) {
-    //   iterateKeys(opts.groups, function (j) {
-    //     let g = opts.groups[parseInt(j, 10)];
-    //     let div = document.createElement('div');
-    //     div.className = 'rs-group';
-    //     g.div = div;
-    //     let h1 = document.createElement('h1');
-    //     h1.textContent = g.caption;
-    //     h1.addEventListener('click', function (e) {
-    //       this.classList.toggle('hidden');
-    //       e.preventDefault();
-    //     }.bind(div));
-    //     div.appendChild(h1);
-    //     div.appendChild(div);
-    //   });
-    // }
+        this._name2extStats[name] = new ExtStats();
+      }
+    }
 
     // ==================
     // DOM
@@ -476,12 +664,12 @@ class Stats {
 
         fractionEL.appendChild(legend);
         fractionEL.style.height = steps.length * _canvasHeight + 'px';
-        fraction.dom = fractionEL;
 
         let graph = new StackGraph(fractionEL, this._colors);
         graph.init(_canvasWidth, _canvasHeight, steps.length);
 
         fraction.graph = graph;
+        fraction.values = new Array(steps.length);
 
         containerEL.appendChild(fractionEL);
       }
@@ -495,67 +683,75 @@ class Stats {
       return null;
     }
 
-    id = id.toLowerCase();
-    let perf = this._id2perf[id];
-    if (perf) {
-      return perf;
+    let counter = this._id2counter[id];
+    if (counter) {
+      return counter;
     }
 
-    // TODO:
-    // let group = null;
-    // if (this._opts && this._opts.groups) {
-    //   iterateKeys(this._opts.groups, function (j) {
-    //     let g = this._opts.groups[parseInt(j, 10)];
-    //     if (!group && g.values.indexOf(id.toLowerCase()) !== -1) {
-    //       group = g;
-    //     }
-    //   });
-    // }
-
     let vopts = this._values[id];
-    perf = new PerfCounter(id, vopts);
-    this._id2perf[id] = perf;
+    if (!vopts) {
+      return null;
+    }
 
-    return perf;
+    // if we have extension, use extension-counter
+    if ( vopts.extension ) {
+      let idx = vopts.extension.indexOf('.');
+      let name = vopts.extension.substring(0,idx);
+      let extStats = this._name2extStats[name];
+      if (!extStats) {
+        console.error(`extension ${name} not found, make sure you have register and enable it.`);
+        return null;
+      }
+
+      counter = extStats.counter(id, vopts);
+    } else {
+      // default, use perf-counter
+      counter = new PerfCounter(id, vopts);
+    }
+
+    this._id2counter[id] = counter;
+    return counter;
   }
 
   tick() {
-    for (let id in this._values) {
-      let perf = this._id2perf[id];
-      if (perf) {
-        let av = perf.sampleAverage();
-        let alarm = perf.sampleAlarm();
-        let item = this._id2item[id];
+    // tick extensions
+    for ( let name in this._name2extStats ) {
+      let extStats = this._name2extStats[name];
+      extStats.tick();
+    }
 
+    // values
+    for (let id in this._values) {
+      let counter = this._id2counter[id];
+      if (counter) {
+        counter.sample();
+        let alarm = counter.alarm();
+        let human = counter.human();
+
+        let item = this._id2item[id];
         item.label.classList.toggle('alarm', alarm > 0);
-        item.valueText.nodeValue = av;
-        item.graph.draw(perf.value, alarm);
+        item.valueText.nodeValue = human;
+        item.graph.draw(counter.value, alarm);
       }
     }
 
     // fractions
     for ( let i = 0; i < this._fractions.length; ++i ) {
       let fraction = this._fractions[i];
-      let v = [];
-
-      let perfBase = this._id2perf[fraction.base.toLowerCase()];
-      if (perfBase) {
+      let baseCounter = this._id2counter[fraction.base];
+      if (baseCounter) {
         let steps = fraction.steps;
+
         for (let j = 0; j < steps.length; ++j) {
-          let id = steps[j].toLowerCase();
-          let perf = this._id2perf[id];
-          if (perf) {
-            v.push(perf.value / perfBase.value);
+          let id = steps[j];
+          let counter = this._id2counter[id];
+          if (counter) {
+            fraction.values[j] = counter.value / baseCounter.value;
           }
         }
-        fraction.graph.draw(v);
+        fraction.graph.draw(fraction.values);
       }
     }
-
-    // TODO:
-    // iterateKeys(this._opts.plugins, function (j) {
-    //   this._opts.plugins[j].update();
-    // });
   }
 }
 
@@ -571,6 +767,10 @@ let pstats = {
 
       return stats.item(id);
     };
+  },
+
+  register(name, ext) {
+    extensions[name] = ext;
   },
 };
 

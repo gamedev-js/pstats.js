@@ -4,7 +4,7 @@ Visualizing and monitor your performance.
 
 Inspired by [rStats.js](https://github.com/spite/rstats).
 
-![pstats](https://cloud.githubusercontent.com/assets/174891/24514019/6f1543b2-15a5-11e7-9656-5b2c8f1758d2.png)
+![pstats.js](https://cloud.githubusercontent.com/assets/174891/24576848/ba461464-16f5-11e7-8599-3ec33f23d694.png)
 
 ## Install
 

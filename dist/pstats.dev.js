@@ -1,6 +1,6 @@
 
 /*
- * pstats.js v1.1.0
+ * pstats.js v1.1.1
  * (c) 2017 @Johnny Wu
  * Released under the MIT License.
  */
@@ -42,8 +42,6 @@ function polyfill() {
 class Graph {
   constructor(dom, color) {
     this._color = color || '#666';
-    this._max = 0;
-    this._current = 0;
 
     this._canvas = document.createElement('canvas');
     this._ctx = this._canvas.getContext('2d');
@@ -65,7 +63,7 @@ class Graph {
     this._canvas.style.height = `${height}px`;
 
     this._ctx.fillStyle = '#444';
-    this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+    this._ctx.fillRect(0, 0, width, height);
 
     this._canvasDot.width = 1;
     this._canvasDot.height = 2 * height;
@@ -91,6 +89,15 @@ class Graph {
     this._ctxAlarm.fillRect(0, height, 1, 1);
     this._ctxAlarm.globalAlpha = 1;
   }
+}
+
+class AutoMaxGraph extends Graph {
+  constructor(dom, color) {
+    super(dom, color);
+
+    this._current = 0;
+    this._max = 0;
+  }
 
   draw(value, alarm) {
     this._current += (value - this._current) * 0.1;
@@ -100,11 +107,7 @@ class Graph {
       this._max = this._current;
     }
 
-    // DISABLE: pstats is not designed for monitor ranged value
-    // if (this._current < this._min) {
-    //   this._min = this._current;
-    // }
-    // let ratio = (this._current - this._min) / (this._max - this._min);
+    let h = Math.round(-this._canvas.height * this._current / this._max);
 
     this._ctx.drawImage(this._canvas,
       1, 0, this._canvas.width - 1, this._canvas.height,
@@ -112,15 +115,95 @@ class Graph {
     );
 
     if (alarm) {
-      this._ctx.drawImage(this._canvasAlarm,
-        this._canvas.width - 1,
-        -this._canvas.height * this._current / this._max
+      this._ctx.drawImage(this._canvasAlarm, this._canvas.width - 1, h);
+    } else {
+      this._ctx.drawImage(this._canvasDot, this._canvas.width - 1, h);
+    }
+  }
+}
+
+class ThresholdGraph extends Graph {
+  constructor(dom, color) {
+    super(dom, color);
+
+    this._current = 0;
+    this._threshold = 0;
+
+    this._canvas2 = document.createElement('canvas');
+    this._ctx2 = this._canvas2.getContext('2d');
+  }
+
+  init(width, height) {
+    super.init(width, height);
+
+    this._canvas2.width = width;
+    this._canvas2.height = height;
+
+    this._ctx2.fillStyle = '#444';
+    this._ctx2.fillRect(0, 0, width, height);
+  }
+
+  draw(value, alarm) {
+    this._current = value;
+    // this._current += (value - this._current) * 0.1;
+    // this._threshold *= 0.99;
+
+    if (this._current > this._threshold) {
+      let factor = (this._current - (this._current % this._canvas.height)) / this._canvas.height;
+      let newThreshold = this._canvas.height * (factor + 1);
+
+      let lastThreshold = this._threshold;
+      this._threshold = newThreshold;
+
+      let ratio = lastThreshold / newThreshold;
+
+      this._ctx2.drawImage(this._canvas, 0, 0);
+
+      this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+      this._ctx.drawImage(this._canvas2,
+        1, 0, this._canvas.width - 1, this._canvas.height,
+        0, (1.0 - ratio) * this._canvas.height, this._canvas.width - 1, this._canvas.height
       );
     } else {
-      this._ctx.drawImage(this._canvasDot,
-        this._canvas.width - 1,
-        -this._canvas.height * this._current / this._max
+      this._ctx.drawImage(this._canvas,
+        1, 0, this._canvas.width - 1, this._canvas.height,
+        0, 0, this._canvas.width - 1, this._canvas.height
       );
+    }
+
+    let h = Math.round(-this._canvas.height * this._current / this._threshold);
+
+    if (alarm) {
+      this._ctx.drawImage(this._canvasAlarm, this._canvas.width - 1, h);
+    } else {
+      this._ctx.drawImage(this._canvasDot, this._canvas.width - 1, h);
+    }
+  }
+}
+
+class RangedGraph extends Graph {
+  constructor(dom, color, min, max) {
+    super(dom, color);
+
+    this._current = 0;
+    this._min = min;
+    this._max = max;
+  }
+
+  draw(value, alarm) {
+    this._current = value;
+    let ratio = (this._current - this._min) / (this._max - this._min);
+    let h = -Math.ceil(this._canvas.height * ratio);
+
+    this._ctx.drawImage(this._canvas,
+      1, 0, this._canvas.width - 1, this._canvas.height,
+      0, 0, this._canvas.width - 1, this._canvas.height
+    );
+
+    if (alarm) {
+      this._ctx.drawImage(this._canvasAlarm, this._canvas.width - 1, h);
+    } else {
+      this._ctx.drawImage(this._canvasDot, this._canvas.width - 1, h);
     }
   }
 }
@@ -383,6 +466,16 @@ function _hackWebGL() {
   WebGLRenderingContext.prototype.bindTexture = _h(WebGLRenderingContext.prototype.bindTexture, function () {
     _totalBindTexures++;
   });
+
+  // WebGLRenderingContext.prototype.flush = _h(WebGLRenderingContext.prototype.flush, function () {
+  //   _totalDrawArraysCalls = 0;
+  //   _totalDrawElementsCalls = 0;
+  //   _totalUseProgramCalls = 0;
+  //   _totalFaces = 0;
+  //   _totalVertices = 0;
+  //   _totalPoints = 0;
+  //   _totalBindTexures = 0;
+  // });
 }
 
 class WebglCounter extends Counter {
@@ -533,6 +626,8 @@ let _css = `
     display: flex;
     flex-direction: row;
     align-items: center;
+    margin-top: 1px;
+    margin-bottom: 1px;
   }
 
   .pstats-legend {
@@ -559,11 +654,32 @@ styleEL.type = 'text/css';
 styleEL.textContent = _css;
 document.head.appendChild(styleEL);
 
-//
 class Stats {
+  /**
+   * @param {HTMLElement} dom
+   * @param {object} opts
+   * @param {object} opts.values
+   * @param {array} opts.fractions
+   * @param {array} opts.extensions
+   *
+   * value
+   * @param {string} value.desc - description
+   * @param {string} value.color - color
+   * @param {number} value.over - alarm when monitor value over the given value
+   * @param {number} value.below - alarm when monitor value below the given value
+   * @param {number} value.average - time in milliseconds
+   * @param {number} value.min - min value
+   * @param {number} value.max - max value
+   * @param {boolean} value.threshold - use auto threshold graph
+   * @param {string} value.extension - extension field to monitor
+   *
+   * fraction
+   * @param {array} value.colors - color map
+   * @param {string} fraction.base - value id use as base value for compare
+   * @param {array} fraction.steps - value ids used for compare
+   */
   constructor (dom, opts) {
     opts = opts || {};
-    this._colors = opts.colors || ['#850700', '#c74900', '#fcb300', '#284280', '#4c7c0c'];
     this._values = opts.values || {};
     this._fractions = opts.fractions || [];
     this._id2counter = {};
@@ -630,7 +746,14 @@ class Stats {
       itemEL.appendChild(label);
 
       // graph
-      let graph = new Graph(itemEL, vopts.color);
+      let graph;
+      if (vopts.min !== undefined || vopts.max !== undefined) {
+        graph = new RangedGraph(itemEL, vopts.color, vopts.min || 0, vopts.max || 9999);
+      } else if (vopts.threshold) {
+        graph = new ThresholdGraph(itemEL, vopts.color);
+      } else {
+        graph = new AutoMaxGraph(itemEL, vopts.color);
+      }
       graph.init(_canvasWidth, _canvasHeight);
 
       //
@@ -647,6 +770,7 @@ class Stats {
     if (opts.fractions) {
       for ( let i = 0; i < opts.fractions.length; ++i ) {
         let fraction = opts.fractions[i];
+        fraction.colors = fraction.colors || ['#850700', '#c74900', '#fcb300', '#284280', '#4c7c0c'];
 
         let fractionEL = document.createElement('div');
         fractionEL.className = 'pstats-fraction';
@@ -658,14 +782,14 @@ class Stats {
         for (let h = 0; h < steps.length; ++h) {
           let p = document.createElement('span');
           p.textContent = steps[h];
-          p.style.color = this._colors[h];
+          p.style.color = fraction.colors[h];
           legend.appendChild(p);
         }
 
         fractionEL.appendChild(legend);
         fractionEL.style.height = steps.length * _canvasHeight + 'px';
 
-        let graph = new StackGraph(fractionEL, this._colors);
+        let graph = new StackGraph(fractionEL, fraction.colors);
         graph.init(_canvasWidth, _canvasHeight, steps.length);
 
         fraction.graph = graph;

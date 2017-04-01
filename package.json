@@ -25,7 +25,8 @@
     "url": "https://github.com/gamedev-js/pstats/issues"
   },
   "homepage": "https://github.com/gamedev-js/pstats/issues",
-  "dependencies": {},
+  "dependencies": {
+  },
   "devDependencies": {
     "electron": "^1.6.3",
     "fs-jetpack": "^0.13.0",

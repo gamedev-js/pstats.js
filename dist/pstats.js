@@ -1,6 +1,6 @@
 
 /*
- * pstats.js v1.1.1
+ * pstats.js v1.2.0
  * (c) 2017 @Johnny Wu
  * Released under the MIT License.
  */
@@ -125,7 +125,6 @@ class ThresholdGraph extends Graph {
   constructor(dom, color) {
     super(dom, color);
 
-    this._current = 0;
     this._threshold = 0;
 
     this._canvas2 = document.createElement('canvas');
@@ -143,12 +142,8 @@ class ThresholdGraph extends Graph {
   }
 
   draw(value, alarm) {
-    this._current = value;
-    // this._current += (value - this._current) * 0.1;
-    // this._threshold *= 0.99;
-
-    if (this._current > this._threshold) {
-      let factor = (this._current - (this._current % this._canvas.height)) / this._canvas.height;
+    if (value > this._threshold) {
+      let factor = (value - (value % this._canvas.height)) / this._canvas.height;
       let newThreshold = this._canvas.height * (factor + 1);
 
       let lastThreshold = this._threshold;
@@ -170,7 +165,7 @@ class ThresholdGraph extends Graph {
       );
     }
 
-    let h = Math.round(-this._canvas.height * this._current / this._threshold);
+    let h = Math.round(-this._canvas.height * value / this._threshold);
 
     if (alarm) {
       this._ctx.drawImage(this._canvasAlarm, this._canvas.width - 1, h);
@@ -184,14 +179,12 @@ class RangedGraph extends Graph {
   constructor(dom, color, min, max) {
     super(dom, color);
 
-    this._current = 0;
     this._min = min;
     this._max = max;
   }
 
   draw(value, alarm) {
-    this._current = value;
-    let ratio = (this._current - this._min) / (this._max - this._min);
+    let ratio = (value - this._min) / (this._max - this._min);
     let h = -Math.ceil(this._canvas.height * ratio);
 
     this._ctx.drawImage(this._canvas,
@@ -302,7 +295,7 @@ class PerfCounter extends Counter {
     // this._idstart = `${id}_start`;
     // this._idend = `${id}_end`;
 
-    this._time = performance.now();
+    this._time = window.performance.now();
   }
 
   start() {

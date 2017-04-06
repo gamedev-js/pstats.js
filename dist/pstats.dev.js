@@ -1,6 +1,6 @@
 
 /*
- * pstats.js v1.2.0
+ * pstats.js v1.2.3
  * (c) 2017 @Johnny Wu
  * Released under the MIT License.
  */

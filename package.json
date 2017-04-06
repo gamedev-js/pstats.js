@@ -1,6 +1,6 @@
 {
   "name": "pstats.js",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Visualizing and monitor your performance.",
   "main": "dist/pstats.js",
   "scripts": {

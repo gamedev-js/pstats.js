@@ -548,10 +548,6 @@ map-obj@^1.0.0, map-obj@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/map-obj/-/map-obj-1.0.1.tgz#d933ceb9205d82bdcf4886f6742bdc2b4dea146d"
 
-memory-stats@^1.0.2:
-  version "1.0.2"
-  resolved "https://registry.yarnpkg.com/memory-stats/-/memory-stats-1.0.2.tgz#806690763e83982270038563bbd153fd55a8be85"
-
 meow@^3.1.0:
   version "3.7.0"
   resolved "https://registry.yarnpkg.com/meow/-/meow-3.7.0.tgz#72cb668b425228290abbfa856892587308a801fb"
@@ -1022,12 +1018,13 @@ typedarray@~0.0.5:
   resolved "https://registry.yarnpkg.com/typedarray/-/typedarray-0.0.6.tgz#867ac74e3864187b1d3d47d996a78ec5c8830777"
 
 "uglify-js@git+https://github.com/mishoo/UglifyJS2.git#harmony":
-  version "2.8.14"
-  resolved "git+https://github.com/mishoo/UglifyJS2.git#7906033e82d66f2735f8626e98f0f7352d9b3d25"
+  version "2.8.21"
+  resolved "git+https://github.com/mishoo/UglifyJS2.git#c20bb99a62ad036368569bd89b934f52258429cd"
   dependencies:
     source-map "~0.5.1"
-    uglify-to-browserify "~1.0.0"
     yargs "~3.10.0"
+  optionalDependencies:
+    uglify-to-browserify "~1.0.0"
 
 uglify-to-browserify@~1.0.0:
   version "1.0.2"

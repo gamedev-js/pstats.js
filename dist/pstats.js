@@ -1,6 +1,6 @@
 
 /*
- * pstats.js v1.2.3
+ * pstats.js v1.2.5
  * (c) 2017 @Johnny Wu
  * Released under the MIT License.
  */
@@ -14,7 +14,7 @@ function polyfill() {
 
   if (!window.performance.now) {
 
-    var nowOffset = Date.now();
+    let nowOffset = Date.now();
 
     if (performance.timing && performance.timing.navigationStart) {
       nowOffset = performance.timing.navigationStart;

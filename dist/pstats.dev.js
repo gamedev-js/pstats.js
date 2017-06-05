@@ -39,55 +39,33 @@ function polyfill() {
   }
 }
 
+var PR$1 = Math.round(window.devicePixelRatio || 1);
+
 var Graph = function Graph(dom, color) {
   this._color = color || '#666';
 
   this._canvas = document.createElement('canvas');
   this._ctx = this._canvas.getContext('2d');
 
-  this._canvasDot = document.createElement('canvas');
-  this._ctxDot = this._canvasDot.getContext('2d');
-
-  this._canvasAlarm = document.createElement('canvas'),
-  this._ctxAlarm = this._canvasAlarm.getContext('2d');
-
   this._canvas.className = 'pstats-canvas';
   dom.appendChild(this._canvas);
 };
 
 Graph.prototype.init = function init (width, height) {
-  this._canvas.width = width;
-  this._canvas.height = height;
+  var WIDTH = width * PR$1;
+  var HEIGHT = height * PR$1;
+
+  this._canvas.width = WIDTH;
+  this._canvas.height = HEIGHT;
   this._canvas.style.width = width + "px";
   this._canvas.style.height = height + "px";
 
+  this._ctx.globalAlpha = 1;
   this._ctx.fillStyle = '#444';
-  this._ctx.fillRect(0, 0, width, height);
-
-  this._canvasDot.width = 1;
-  this._canvasDot.height = 2 * height;
-
-  this._ctxDot.fillStyle = '#444';
-  this._ctxDot.fillRect(0, 0, 1, 2 * height);
-  this._ctxDot.fillStyle = this._color;
-  this._ctxDot.fillRect(0, height, 1, height);
-  this._ctxDot.fillStyle = '#fff';
-  this._ctxDot.globalAlpha = 0.5;
-  this._ctxDot.fillRect(0, height, 1, 1);
-  this._ctxDot.globalAlpha = 1;
-
-  this._canvasAlarm.width = 1;
-  this._canvasAlarm.height = 2 * height;
-
-  this._ctxAlarm.fillStyle = '#444';
-  this._ctxAlarm.fillRect(0, 0, 1, 2 * height);
-  this._ctxAlarm.fillStyle = '#b70000';
-  this._ctxAlarm.fillRect(0, height, 1, height);
-  this._ctxAlarm.globalAlpha = 0.5;
-  this._ctxAlarm.fillStyle = '#fff';
-  this._ctxAlarm.fillRect(0, height, 1, 1);
-  this._ctxAlarm.globalAlpha = 1;
+  this._ctx.fillRect(0, 0, WIDTH, HEIGHT);
 };
+
+var PR = Math.round(window.devicePixelRatio || 1);
 
 var AutoMaxGraph = (function (Graph$$1) {
   function AutoMaxGraph(dom, color) {
@@ -102,6 +80,9 @@ var AutoMaxGraph = (function (Graph$$1) {
   AutoMaxGraph.prototype.constructor = AutoMaxGraph;
 
   AutoMaxGraph.prototype.draw = function draw (value, alarm) {
+    var WIDTH = this._canvas.width;
+    var HEIGHT = this._canvas.height;
+
     this._current += (value - this._current) * 0.1;
     this._max *= 0.99;
 
@@ -109,22 +90,46 @@ var AutoMaxGraph = (function (Graph$$1) {
       this._max = this._current;
     }
 
-    var h = Math.round(-this._canvas.height * this._current / this._max);
-
+    var h = Math.round((1 - this._current / this._max) * HEIGHT);
+    this._ctx.globalAlpha = 1;
     this._ctx.drawImage(this._canvas,
-      1, 0, this._canvas.width - 1, this._canvas.height,
-      0, 0, this._canvas.width - 1, this._canvas.height
+      PR, 0, WIDTH - PR, HEIGHT,
+      0, 0, WIDTH - PR, HEIGHT
     );
 
     if (alarm) {
-      this._ctx.drawImage(this._canvasAlarm, this._canvas.width - 1, h);
+      // background
+      this._ctx.fillStyle = '#444';
+      this._ctx.fillRect(WIDTH-PR, 0, PR, HEIGHT);
+
+      // value
+      this._ctx.fillStyle = '#b70000';
+      this._ctx.fillRect(WIDTH-PR, h, PR, HEIGHT-h);
+
+      // line
+      this._ctx.globalAlpha = 0.5;
+      this._ctx.fillStyle = '#fff';
+      this._ctx.fillRect(WIDTH-PR, h, PR, PR);
     } else {
-      this._ctx.drawImage(this._canvasDot, this._canvas.width - 1, h);
+      // background
+      this._ctx.fillStyle = '#444';
+      this._ctx.fillRect(WIDTH-PR, 0, PR, HEIGHT);
+
+      // value
+      this._ctx.fillStyle = this._color;
+      this._ctx.fillRect(WIDTH-PR, h, PR, HEIGHT-h);
+
+      // line
+      this._ctx.globalAlpha = 0.5;
+      this._ctx.fillStyle = '#fff';
+      this._ctx.fillRect(WIDTH-PR, h, PR, PR);
     }
   };
 
   return AutoMaxGraph;
 }(Graph));
+
+var PR$2 = Math.round(window.devicePixelRatio || 1);
 
 var ThresholdGraph = (function (Graph$$1) {
   function ThresholdGraph(dom, color) {
@@ -143,17 +148,28 @@ var ThresholdGraph = (function (Graph$$1) {
   ThresholdGraph.prototype.init = function init (width, height) {
     Graph$$1.prototype.init.call(this, width, height);
 
-    this._canvas2.width = width;
-    this._canvas2.height = height;
+    var WIDTH = width * PR$2;
+    var HEIGHT = height * PR$2;
 
+    this._canvas2.width = WIDTH;
+    this._canvas2.height = HEIGHT;
+    this._canvas2.style.width = width + "px";
+    this._canvas2.style.height = height + "px";
+
+    this._ctx2.globalAlpha = 1;
     this._ctx2.fillStyle = '#444';
-    this._ctx2.fillRect(0, 0, width, height);
+    this._ctx2.fillRect(0, 0, WIDTH, HEIGHT);
   };
 
   ThresholdGraph.prototype.draw = function draw (value, alarm) {
+    var WIDTH = this._canvas.width;
+    var HEIGHT = this._canvas.height;
+    this._ctx.globalAlpha = 1;
+    this._ctx2.globalAlpha = 1;
+
     if (value > this._threshold) {
-      var factor = (value - (value % this._canvas.height)) / this._canvas.height;
-      var newThreshold = this._canvas.height * (factor + 1);
+      var factor = (value - (value % HEIGHT)) / HEIGHT;
+      var newThreshold = HEIGHT * (factor + 1);
 
       var lastThreshold = this._threshold;
       this._threshold = newThreshold;
@@ -162,29 +178,54 @@ var ThresholdGraph = (function (Graph$$1) {
 
       this._ctx2.drawImage(this._canvas, 0, 0);
 
-      this._ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
+      this._ctx.fillStyle = '#444';
+      this._ctx.fillRect(0, 0, WIDTH, HEIGHT);
       this._ctx.drawImage(this._canvas2,
-        1, 0, this._canvas.width - 1, this._canvas.height,
-        0, (1.0 - ratio) * this._canvas.height, this._canvas.width - 1, this._canvas.height
+        PR$2, 0, WIDTH - PR$2, HEIGHT,
+        0, Math.round((1.0 - ratio) * HEIGHT), WIDTH - PR$2, HEIGHT
       );
     } else {
       this._ctx.drawImage(this._canvas,
-        1, 0, this._canvas.width - 1, this._canvas.height,
-        0, 0, this._canvas.width - 1, this._canvas.height
+        PR$2, 0, WIDTH - PR$2, HEIGHT,
+        0, 0, WIDTH - PR$2, HEIGHT
       );
     }
 
-    var h = Math.round(-this._canvas.height * value / this._threshold);
+    var h = Math.round(HEIGHT * (1.0 - value / this._threshold));
 
     if (alarm) {
-      this._ctx.drawImage(this._canvasAlarm, this._canvas.width - 1, h);
+      // background
+      this._ctx.fillStyle = '#444';
+      this._ctx.fillRect(WIDTH-PR$2, 0, PR$2, HEIGHT);
+
+      // value
+      this._ctx.fillStyle = '#b70000';
+      this._ctx.fillRect(WIDTH-PR$2, h, PR$2, HEIGHT-h);
+
+      // line
+      this._ctx.globalAlpha = 0.5;
+      this._ctx.fillStyle = '#fff';
+      this._ctx.fillRect(WIDTH-PR$2, h, PR$2, PR$2);
     } else {
-      this._ctx.drawImage(this._canvasDot, this._canvas.width - 1, h);
+      // background
+      this._ctx.fillStyle = '#444';
+      this._ctx.fillRect(WIDTH-PR$2, 0, PR$2, HEIGHT);
+
+      // value
+      this._ctx.fillStyle = this._color;
+      this._ctx.fillRect(WIDTH-PR$2, h, PR$2, HEIGHT-h);
+
+      // line
+      this._ctx.globalAlpha = 0.5;
+      this._ctx.fillStyle = '#fff';
+      this._ctx.fillRect(WIDTH-PR$2, h, PR$2, PR$2);
     }
   };
 
   return ThresholdGraph;
 }(Graph));
+
+var PR$3 = Math.round(window.devicePixelRatio || 1);
 
 var RangedGraph = (function (Graph$$1) {
   function RangedGraph(dom, color, min, max) {
@@ -199,23 +240,51 @@ var RangedGraph = (function (Graph$$1) {
   RangedGraph.prototype.constructor = RangedGraph;
 
   RangedGraph.prototype.draw = function draw (value, alarm) {
-    var ratio = (value - this._min) / (this._max - this._min);
-    var h = -Math.ceil(this._canvas.height * ratio);
+    var WIDTH = this._canvas.width;
+    var HEIGHT = this._canvas.height;
 
+    var ratio = (value - this._min) / (this._max - this._min);
+    var h = Math.round((1-ratio) * HEIGHT);
+
+    this._ctx.globalAlpha = 1;
     this._ctx.drawImage(this._canvas,
-      1, 0, this._canvas.width - 1, this._canvas.height,
-      0, 0, this._canvas.width - 1, this._canvas.height
+      PR$3, 0, WIDTH - PR$3, HEIGHT,
+      0, 0, WIDTH - PR$3, HEIGHT
     );
 
     if (alarm) {
-      this._ctx.drawImage(this._canvasAlarm, this._canvas.width - 1, h);
+      // background
+      this._ctx.fillStyle = '#444';
+      this._ctx.fillRect(WIDTH-PR$3, 0, PR$3, HEIGHT);
+
+      // value
+      this._ctx.fillStyle = '#b70000';
+      this._ctx.fillRect(WIDTH-PR$3, h, PR$3, HEIGHT-h);
+
+      // line
+      this._ctx.globalAlpha = 0.5;
+      this._ctx.fillStyle = '#fff';
+      this._ctx.fillRect(WIDTH-PR$3, h, PR$3, PR$3);
     } else {
-      this._ctx.drawImage(this._canvasDot, this._canvas.width - 1, h);
+      // background
+      this._ctx.fillStyle = '#444';
+      this._ctx.fillRect(WIDTH-PR$3, 0, PR$3, HEIGHT);
+
+      // value
+      this._ctx.fillStyle = this._color;
+      this._ctx.fillRect(WIDTH-PR$3, h, PR$3, HEIGHT-h);
+
+      // line
+      this._ctx.globalAlpha = 0.5;
+      this._ctx.fillStyle = '#fff';
+      this._ctx.fillRect(WIDTH-PR$3, h, PR$3, PR$3);
     }
   };
 
   return RangedGraph;
 }(Graph));
+
+var PR$4 = Math.round(window.devicePixelRatio || 1);
 
 var StackGraph = function StackGraph(dom, colors) {
   this._colors = colors;
@@ -228,28 +297,36 @@ var StackGraph = function StackGraph(dom, colors) {
 };
 
 StackGraph.prototype.init = function init (width, height, n) {
-  this._canvas.width = width;
-  this._canvas.height = height * n;
+  var WIDTH = width * PR$4;
+  var HEIGHT = height * PR$4;
+
+  this._canvas.width = WIDTH;
+  this._canvas.height = HEIGHT * n;
   this._canvas.style.width = width + "px";
   this._canvas.style.height = (height * n) + "px";
 
+  this._ctx.globalAlpha = 1;
   this._ctx.fillStyle = '#444';
-  this._ctx.fillRect(0, 0, width, height * n);
+  this._ctx.fillRect(0, 0, WIDTH, HEIGHT * n);
 };
 
 StackGraph.prototype.draw = function draw (values) {
     var this$1 = this;
 
+  var WIDTH = this._canvas.width;
+  var HEIGHT = this._canvas.height;
+
+  this._ctx.globalAlpha = 1;
   this._ctx.drawImage(this._canvas,
-    1, 0, this._canvas.width - 1, this._canvas.height,
-    0, 0, this._canvas.width - 1, this._canvas.height
+    PR$4, 0, WIDTH - PR$4, HEIGHT,
+    0, 0, WIDTH - PR$4, HEIGHT
   );
 
   var th = 0;
   for (var i = 0; i < values.length; ++i) {
-    var h = values[i] * this$1._canvas.height;
+    var h = values[i] * HEIGHT;
     this$1._ctx.fillStyle = this$1._colors[i];
-    this$1._ctx.fillRect(this$1._canvas.width - 1, th, 1, h);
+    this$1._ctx.fillRect(WIDTH - PR$4, th, PR$4, h);
     th += h;
   }
 };
@@ -450,7 +527,7 @@ var extensions = {
 
 var _canvasWidth = 100;
 var _canvasHeight = 10;
-var _css = "\n  .pstats {\n    position: absolute;\n    z-index: 9999;\n\n    padding: 5px;\n    width: " + (_canvasWidth+150) + "px;\n    right: 0;\n    bottom: 0;\n\n    font-size: 10px;\n    font-family: 'Roboto Condensed', tahoma, sans-serif;\n    overflow: hidden;\n    user-select: none;\n    cursor: default;\n\n    background: #222;\n    border-radius: 3px;\n\n  }\n\n  .pstats-container {\n    display: flex;\n    flex-direction: column;\n    color: #888;\n    white-space: nowrap;\n  }\n\n  .pstats-item {\n    display: flex;\n    flex-direction: row;\n    align-items: center;\n  }\n\n  .pstats-label {\n    display: flex;\n    flex-direction: row;\n    flex: 1;\n\n    text-align: left;\n    margin-right: 5px;\n\n    transition: background 0.3s;\n  }\n\n  .pstats-label.alarm {\n    color: #ccc;\n    background: #800;\n\n    transition: background 0s;\n  }\n\n  .pstats-counter-id {\n    flex: 1;\n  }\n\n  .pstats-counter-value {\n    flex: 1;\n    text-align: right;\n  }\n\n  .pstats-fraction {\n    display: flex;\n    flex-direction: row;\n    align-items: center;\n    margin-top: 1px;\n    margin-bottom: 1px;\n  }\n\n  .pstats-legend {\n    display: flex;\n    flex-direction: column;\n    flex: 1;\n\n    text-align: right;\n    margin-right: 5px;\n  }\n";
+var _css = "\n  .pstats {\n    position: fixed;\n    z-index: 9999;\n\n    padding: 5px;\n    width: " + (_canvasWidth+150) + "px;\n    right: 5px;\n    bottom: 5px;\n\n    font-size: 10px;\n    font-family: 'Roboto Condensed', tahoma, sans-serif;\n    overflow: hidden;\n    user-select: none;\n    cursor: default;\n\n    background: #222;\n    border-radius: 3px;\n  }\n\n  .pstats-container {\n    display: block;\n    position: relative;\n    color: #888;\n    white-space: nowrap;\n  }\n\n  .pstats-item {\n    position: absolute;\n    width: 250px;\n    height: 12px;\n    left: 0px;\n  }\n\n  .pstats-label {\n    position: absolute;\n    width: 150px;\n    height: 12px;\n    text-align: left;\n    transition: background 0.3s;\n  }\n\n  .pstats-label.alarm {\n    color: #ccc;\n    background: #800;\n\n    transition: background 0s;\n  }\n\n  .pstats-counter-id {\n    position: absolute;\n    width: 90px;\n    left: 0px;\n  }\n\n  .pstats-counter-value {\n    position: absolute;\n    width: 60px;\n    left: 90px;\n    text-align: right;\n  }\n\n  .pstats-canvas {\n    display: block;\n    position: absolute;\n    right: 0px;\n    top: 1px;\n  }\n\n  .pstats-fraction {\n    position: absolute;\n    width: 250px;\n    left: 0px;\n  }\n\n  .pstats-legend {\n    position: absolute;\n    width: 150px;\n\n    text-align: right;\n  }\n\n  .pstats-legend > span {\n    position: absolute;\n    right: 0px;\n  }\n";
 
 // DISABLE:
 // let cssFont = 'https://fonts.googleapis.com/css?family=Roboto+Condensed:400,700,300';
@@ -508,6 +585,8 @@ var Stats = function Stats (dom, opts) {
 
   this._root.appendChild(containerEL);
 
+  var containerHeight = 0;
+
   // pstats-item
   for (var id in this$1._values) {
     var vopts = this$1._values[id];
@@ -544,7 +623,7 @@ var Stats = function Stats (dom, opts) {
     } else {
       graph = new AutoMaxGraph(itemEL, vopts.color);
     }
-    graph.init(_canvasWidth, _canvasHeight);
+    graph.init(_canvasWidth - 5, _canvasHeight);
 
     //
     this$1._id2item[id] = {
@@ -553,13 +632,20 @@ var Stats = function Stats (dom, opts) {
       graph: graph,
     };
 
+    itemEL.style.top = containerHeight + "px";
     containerEL.appendChild(itemEL);
+
+    containerHeight += 12;
   }
 
   // pstats-fraction
   if (opts.fractions) {
     for ( var i$1 = 0; i$1 < opts.fractions.length; ++i$1 ) {
       var fraction = opts.fractions[i$1];
+      var steps = fraction.steps;
+
+      var height = steps.length * _canvasHeight + 2;
+
       fraction.colors = fraction.colors || ['#850700', '#c74900', '#fcb300', '#284280', '#4c7c0c'];
 
       var fractionEL = document.createElement('div');
@@ -567,27 +653,34 @@ var Stats = function Stats (dom, opts) {
 
       var legend = document.createElement('div');
       legend.className = 'pstats-legend';
+      legend.style.height = height + "px";
 
-      var steps = fraction.steps;
       for (var h = 0; h < steps.length; ++h) {
         var p = document.createElement('span');
         p.textContent = steps[h];
         p.style.color = fraction.colors[h];
+        p.style.top = (h * _canvasHeight) + "px";
         legend.appendChild(p);
       }
 
       fractionEL.appendChild(legend);
-      fractionEL.style.height = steps.length * _canvasHeight + 'px';
+      fractionEL.style.height = height + "px";
+      fractionEL.style.top = containerHeight + "px";
 
       var graph$1 = new StackGraph(fractionEL, fraction.colors);
-      graph$1.init(_canvasWidth, _canvasHeight, steps.length);
+      graph$1.init(_canvasWidth-5, _canvasHeight, steps.length);
 
       fraction.graph = graph$1;
       fraction.values = new Array(steps.length);
 
       containerEL.appendChild(fractionEL);
+
+      containerHeight += steps.length * _canvasHeight + 2;
     }
   }
+
+  containerEL.style.height = containerHeight + "px";
+  this._root.style.height = containerHeight + "px";
 
   dom.appendChild(this._root);
 };

@@ -21,13 +21,15 @@
         color: #f90;
       }
     </style>
-    <script src="../dist/pstats.min.js"></script>
+    <script src="../dist/pstats.dev.js"></script>
+    <script src="../node_modules/lstats.js/dist/lstats.min.js"></script>
   </head>
 
   <body>
     <h2>pstats</h2>
     <script>
       'use strict';
+      let lstats = new window.LStats(document.body);
 
       let stats = pstats.new(document.body, {
         values: {
@@ -80,6 +82,7 @@
         stats('frame').end();
 
         stats().tick();
+        lstats.tick();
 
         requestAnimationFrame(render);
       }

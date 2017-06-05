@@ -600,6 +600,10 @@ loud-rejection@^1.0.0:
     currently-unhandled "^0.4.1"
     signal-exit "^3.0.0"
 
+lstats.js@^1.2.4:
+  version "1.2.4"
+  resolved "https://registry.yarnpkg.com/lstats.js/-/lstats.js-1.2.4.tgz#c0bfdeebf9de1c1fbc01a3333f6dad4bf971008f"
+
 magic-string@^0.14.0:
   version "0.14.0"
   resolved "https://registry.yarnpkg.com/magic-string/-/magic-string-0.14.0.tgz#57224aef1701caeed273b17a39a956e72b172462"

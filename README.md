@@ -16,6 +16,7 @@ npm install pstats.js
 
 ```javascript
 let stats = pstats.new(document.body, {
+  showGraph: true,
   values: {
     frame: { desc: 'Total frame time (ms)', over: 18, average: 100 },
     raf: { desc: 'Time since last rAF (ms)', average: 100 },

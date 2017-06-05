@@ -32,6 +32,7 @@
       let lstats = new window.LStats(document.body);
 
       let stats = pstats.new(document.body, {
+        // showGraph: false,
         values: {
           frame: { desc: 'Total frame time (ms)', over: 18, average: 100 },
           raf: { desc: 'Time since last rAF (ms)', average: 100 },

@@ -1,6 +1,6 @@
 
 /*
- * pstats.js v1.2.6
+ * pstats.js v1.3.0
  * (c) 2017 @Johnny Wu
  * Released under the MIT License.
  */
@@ -547,6 +547,7 @@ var Stats = function Stats (dom, opts) {
   var this$1 = this;
 
   opts = opts || {};
+  this._showGraph = opts.showGraph !== undefined ? opts._showGraph : true;
   this._values = opts.values || {};
   this._fractions = opts.fractions || [];
   this._id2counter = {};
@@ -616,14 +617,16 @@ var Stats = function Stats (dom, opts) {
 
     // graph
     var graph = (void 0);
-    if (vopts.min !== undefined || vopts.max !== undefined) {
-      graph = new RangedGraph(itemEL, vopts.color, vopts.min || 0, vopts.max || 9999);
-    } else if (vopts.threshold) {
-      graph = new ThresholdGraph(itemEL, vopts.color);
-    } else {
-      graph = new AutoMaxGraph(itemEL, vopts.color);
+    if (this$1._showGraph) {
+      if (vopts.min !== undefined || vopts.max !== undefined) {
+        graph = new RangedGraph(itemEL, vopts.color, vopts.min || 0, vopts.max || 9999);
+      } else if (vopts.threshold) {
+        graph = new ThresholdGraph(itemEL, vopts.color);
+      } else {
+        graph = new AutoMaxGraph(itemEL, vopts.color);
+      }
+      graph.init(_canvasWidth - 5, _canvasHeight);
     }
-    graph.init(_canvasWidth - 5, _canvasHeight);
 
     //
     this$1._id2item[id] = {
@@ -639,7 +642,7 @@ var Stats = function Stats (dom, opts) {
   }
 
   // pstats-fraction
-  if (opts.fractions) {
+  if (this._showGraph && opts.fractions) {
     for ( var i$1 = 0; i$1 < opts.fractions.length; ++i$1 ) {
       var fraction = opts.fractions[i$1];
       var steps = fraction.steps;
@@ -681,6 +684,9 @@ var Stats = function Stats (dom, opts) {
 
   containerEL.style.height = containerHeight + "px";
   this._root.style.height = containerHeight + "px";
+  if (!this._showGraph) {
+    this._root.style.width = '150px';
+  }
 
   dom.appendChild(this._root);
 };
@@ -740,25 +746,29 @@ Stats.prototype.tick = function tick () {
       var item = this$1._id2item[id];
       item.label.classList.toggle('alarm', alarm > 0);
       item.valueText.nodeValue = human;
-      item.graph.draw(counter.value, alarm);
+      if (this$1._showGraph) {
+        item.graph.draw(counter.value, alarm);
+      }
     }
   }
 
   // fractions
-  for ( var i = 0; i < this._fractions.length; ++i ) {
-    var fraction = this$1._fractions[i];
-    var baseCounter = this$1._id2counter[fraction.base];
-    if (baseCounter) {
-      var steps = fraction.steps;
+  if (this._showGraph) {
+    for (var i = 0; i < this._fractions.length; ++i) {
+      var fraction = this$1._fractions[i];
+      var baseCounter = this$1._id2counter[fraction.base];
+      if (baseCounter) {
+        var steps = fraction.steps;
 
-      for (var j = 0; j < steps.length; ++j) {
-        var id$1 = steps[j];
-        var counter$1 = this$1._id2counter[id$1];
-        if (counter$1) {
-          fraction.values[j] = counter$1.value / baseCounter.value;
+        for (var j = 0; j < steps.length; ++j) {
+          var id$1 = steps[j];
+          var counter$1 = this$1._id2counter[id$1];
+          if (counter$1) {
+            fraction.values[j] = counter$1.value / baseCounter.value;
+          }
         }
+        fraction.graph.draw(fraction.values);
       }
-      fraction.graph.draw(fraction.values);
     }
   }
 };

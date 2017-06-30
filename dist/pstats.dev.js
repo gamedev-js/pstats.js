@@ -1,6 +1,6 @@
 
 /*
- * pstats.js v1.3.0
+ * pstats.js v1.3.1
  * (c) 2017 @Johnny Wu
  * Released under the MIT License.
  */
@@ -45,7 +45,7 @@ var Graph = function Graph(dom, color) {
   this._color = color || '#666';
 
   this._canvas = document.createElement('canvas');
-  this._ctx = this._canvas.getContext('2d');
+  this._ctx = this._canvas.getContext('2d', { alpha: false });
 
   this._canvas.className = 'pstats-canvas';
   dom.appendChild(this._canvas);
@@ -138,7 +138,7 @@ var ThresholdGraph = (function (Graph$$1) {
     this._threshold = 0;
 
     this._canvas2 = document.createElement('canvas');
-    this._ctx2 = this._canvas2.getContext('2d');
+    this._ctx2 = this._canvas2.getContext('2d', { alpha: false });
   }
 
   if ( Graph$$1 ) ThresholdGraph.__proto__ = Graph$$1;
@@ -290,7 +290,7 @@ var StackGraph = function StackGraph(dom, colors) {
   this._colors = colors;
 
   this._canvas = document.createElement('canvas');
-  this._ctx = this._canvas.getContext('2d');
+  this._ctx = this._canvas.getContext('2d', { alpha: false });
 
   this._canvas.className = 'pstats-canvas';
   dom.appendChild(this._canvas);
